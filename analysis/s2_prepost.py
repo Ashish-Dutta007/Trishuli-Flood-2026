@@ -83,12 +83,30 @@ clear = np.concatenate([r[~m & (r[..., 0] > 0)].ravel() for r, m in panels.value
 LO, HI = np.nanpercentile(clear, [2, 96])
 print(f"shared stretch: {LO:.0f} to {HI:.0f} (from cloud-free pixels of both dates)")
 
-fig, axes = plt.subplots(1, 2, figsize=(15, 8.2), facecolor="#0c131a")
+# The public figure zooms to the readable downstream reach. At full-corridor
+# scale a 60--120 m channel is only a few display pixels and the result is hard
+# to see without GIS experience.
+VW, VS, VE, VN = 85.11, 27.855, 85.205, 27.995
+fig = plt.figure(figsize=(15, 9), facecolor="#0c131a")
+gs = fig.add_gridspec(3, 2, height_ratios=[0.14, 1, 0.27], hspace=0.10, wspace=0.025)
+head = fig.add_subplot(gs[0, :]); head.axis("off")
+head.text(0, 0.76, "The readable downstream channel is wider after the event",
+          color="#e9eff4", fontsize=19, fontweight="bold", va="center")
+head.text(0, 0.31, "Same place, scale and image stretch  |  Bidur to Betrawati",
+          color="#9ad6ea", fontsize=11.5, va="center")
+
+axes = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
 for ax, (label, (rgb, mask)) in zip(axes, panels.items()):
     ax.imshow(stretch(rgb, LO, HI, mask), extent=[W, E, S, N], aspect="auto",
               interpolation="bilinear")
-    ax.set_title(f"{label}    ({mask.mean()*100:.0f}% cloud in view)",
-                 color="#e9eff4", fontsize=13.5, pad=10, fontweight="bold")
+    ax.set_xlim(VW, VE); ax.set_ylim(VS, VN)
+    r0 = max(0, int((N - VN) / (N - S) * mask.shape[0]))
+    r1 = min(mask.shape[0], int((N - VS) / (N - S) * mask.shape[0]))
+    c0 = max(0, int((VW - W) / (E - W) * mask.shape[1]))
+    c1 = min(mask.shape[1], int((VE - W) / (E - W) * mask.shape[1]))
+    view_cloud = mask[r0:r1, c0:c1].mean() * 100
+    ax.set_title(f"{label}    ({view_cloud:.0f}% cloud / shadow)",
+                 color="#e9eff4", fontsize=13, pad=9, fontweight="bold")
     ax.set_xticks([]); ax.set_yticks([])
     for sp in ax.spines.values(): sp.set_color("#2a3844")
     for lon, lat, nm in [(85.1860, 27.9731, "Betrawati"), (85.1465, 27.8953, "Bidur"),
@@ -97,13 +115,31 @@ for ax, (label, (rgb, mask)) in zip(axes, panels.items()):
             ax.plot(lon, lat, "o", ms=5, mfc="none", mec="#ffd166", mew=1.6)
             ax.annotate(nm, (lon, lat), xytext=(7, 0), textcoords="offset points",
                         color="#ffd166", fontsize=9.5, va="center")
+    ax.annotate("Follow the river ribbon", xy=(85.135, 27.914), xytext=(85.122, 27.945),
+                color="#e9eff4", fontsize=9.5, fontweight="bold",
+                arrowprops={"arrowstyle": "->", "color": "#e9eff4", "lw": 1.4},
+                bbox={"boxstyle": "round,pad=0.25", "fc": "#0c131a", "ec": "#2a3844", "alpha": .9})
 
-fig.suptitle("Trishuli corridor, Sentinel-2 short-wave infrared composite",
-             color="#e9eff4", fontsize=16, fontweight="bold", y=0.975)
-fig.text(0.5, 0.925, "Water reads dark, wet sediment pale. Grey areas are cloud or cloud shadow, where nothing can be read.",
-         ha="center", color="#8394a2", fontsize=10.5)
-fig.text(0.5, 0.03, "Copernicus Sentinel-2 L2A via AWS Open Data. Bands 11, 8, 4, identical stretch on both dates. Comparison only, no change detection applied.",
+summary = fig.add_subplot(gs[2, :]); summary.axis("off")
+summary.text(0, .90, "MEDIAN WETTED WIDTH ACROSS 46 CLEAR CROSS-SECTIONS",
+             color="#9ad6ea", fontsize=10.5, fontweight="bold", transform=summary.transAxes)
+for y, label, width, colour in [(.60, "12 AUG", 60, "#5cb9d6"),
+                                (.30, "27 AUG", 120, "#e8776b")]:
+    summary.text(.02, y, label, color="#b4c2ce", fontsize=11, fontweight="bold",
+                 va="center", transform=summary.transAxes)
+    x0, x1 = .13, .13 + width / 120 * .36
+    summary.plot([x0, x1], [y, y], color=colour, lw=11, solid_capstyle="butt",
+                 transform=summary.transAxes, clip_on=False)
+    summary.text(x1 + .015, y, f"{width} m", color="#e9eff4", fontsize=14,
+                 fontweight="bold", va="center", transform=summary.transAxes)
+summary.text(.67, .55, "40 OF 46", color="#e9eff4", fontsize=19, fontweight="bold",
+             transform=summary.transAxes)
+summary.text(.67, .32, "cross-sections were wider after", color="#b4c2ce", fontsize=11,
+             transform=summary.transAxes)
+summary.text(.98, .04, "Dark = water  |  Pale pink = wet sediment  |  Grey = no reading through cloud",
+             color="#8394a2", fontsize=9.5, ha="right", transform=summary.transAxes)
+fig.text(0.5, 0.012, "Copernicus Sentinel-2 L2A, bands 11/8/4. Comparison only; not a mapped flood extent.",
          ha="center", color="#6b7a88", fontsize=8.5)
-plt.tight_layout(rect=[0, 0.055, 1, 0.912])
+plt.subplots_adjust(left=.025, right=.975, top=.975, bottom=.045)
 plt.savefig("out/s2_prepost.png", dpi=125, facecolor="#0c131a")
 print("wrote out/s2_prepost.png")
