@@ -1,0 +1,8 @@
+geopandas==1.1.1
+matplotlib
+numpy
+pandas
+pillow
+rasterio==1.5.0
+requests
+shapely==2.1.2

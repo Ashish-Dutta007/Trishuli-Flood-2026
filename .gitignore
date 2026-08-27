@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+# Retrieved data and rendered figures are reproducible from the scripts and are
+# large, so they are not tracked. Run the scripts to regenerate.
+data/
+out/
+*.tif
+*.gpkg
+*.png
+*.jpg
