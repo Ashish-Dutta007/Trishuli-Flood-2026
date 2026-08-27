@@ -24,7 +24,7 @@ Every source below is public and none of these scripts needs an API key.
 | `s2_prepost.py` | Pre and post short-wave infrared composite. One stretch is computed across both dates; a per-date stretch can manufacture apparent change. |
 | `channel_width.py` | Wetted area and cross-section widths from MNDWI, comparing only pixels cloud-free on both dates, at three thresholds. |
 | `skysat_detail.py` | Reviews the sharpest Planet Crisis Response view at Syabrubesi and labels it as a single-date, cloud-and-haze-limited observation. |
-| `refresh_osm_extract.py` | Re-cuts the corridor from HOT raw-data-api, which tracks OSM minutely. The HDX snapshot lags an active mapping campaign. |
+| `refresh_osm_extract.py` | Re-cuts the corridor from HOT raw-data-api, which tracks OSM minutely. It rejects the export clipping boundary and implausibly small feature counts before replacing a snapshot. |
 | `hot_changesets.py` | Counts the mapping campaign from public OSM changesets. |
 | `hot_before_after.py` | Renders map coverage before and after the campaign. |
 | `poll_copernicus.py` | Watches the Copernicus catalogue for the first post-event scene. Idempotent, safe under cron. |

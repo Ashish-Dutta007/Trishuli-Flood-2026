@@ -10,18 +10,18 @@ import json, sys, time, io, zipfile, urllib.request, urllib.error
 from pathlib import Path
 
 API = "https://api-prod.raw-data.hotosm.org/v1"
-UA = "flood-trishuli/0.3 (meashishdutta@gmail.com)"
+UA = "Trishuli-Flood-2026/0.4 (meashishdutta@gmail.com)"
 HERE = Path(__file__).resolve().parents[1]
 AOI = HERE / "data" / "hot_flood_npl_aoi.geojson"
 OUT = HERE / "data" / "hot_live"
 
 LAYERS = {
     "buildings": {"tags": {"allGeometry": {"joinOr": {"building": []}}},
-                  "geometryType": ["polygon"]},
+                  "geometryType": ["polygon"], "min_features": 15_000},
     "roads":     {"tags": {"allGeometry": {"joinOr": {"highway": []}}},
-                  "geometryType": ["line"]},
+                  "geometryType": ["line"], "min_features": 1_000},
     "bridges":   {"tags": {"allGeometry": {"joinOr": {"bridge": []}}},
-                  "geometryType": ["line", "polygon"]},
+                  "geometryType": ["line", "polygon"], "min_features": 50},
 }
 
 
@@ -58,14 +58,27 @@ def snapshot(name: str, spec: dict, geometry: dict, timeout_s: int = 900) -> Pat
             with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}),
                                         timeout=300) as r:
                 blob = r.read()
-            OUT.mkdir(parents=True, exist_ok=True)
-            dest = OUT / f"{name}.geojson"
             if blob[:2] == b"PK":
                 with zipfile.ZipFile(io.BytesIO(blob)) as z:
-                    member = next(m for m in z.namelist() if m.endswith(".geojson"))
-                    dest.write_bytes(z.read(member))
+                    members = [
+                        member for member in z.namelist()
+                        if member.endswith(".geojson")
+                        and Path(member).name != "clipping_boundary.geojson"
+                    ]
+                    if len(members) != 1:
+                        raise RuntimeError(f"{name}: expected one data GeoJSON, found {members}")
+                    payload = z.read(members[0])
             else:
-                dest.write_bytes(blob)
+                payload = blob
+            document = json.loads(payload)
+            count = len(document.get("features", [])) if document.get("type") == "FeatureCollection" else 0
+            if count < spec["min_features"]:
+                raise RuntimeError(
+                    f"{name}: sanity gate failed ({count} features, expected at least {spec['min_features']})"
+                )
+            OUT.mkdir(parents=True, exist_ok=True)
+            dest = OUT / f"{name}.geojson"
+            dest.write_bytes(payload)
             print(f"  {name:10s} -> {dest.name} ({dest.stat().st_size:,} bytes)", flush=True)
             return dest
         if state in ("FAILURE", "REVOKED"):
